@@ -1,4 +1,3 @@
-use config;
 use secrecy::{ExposeSecret, Secret};
 
 #[derive(serde::Deserialize)]
@@ -52,7 +51,7 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         .unwrap_or_else(|_| "local".into())
         .try_into()
         .expect("Failed to parse APP_ENVIRONMENT.");
-
+    println!("{:?}", environment.as_str());
     let environment_filename = format!("{}.yaml", environment.as_str());
 
     let settings = config::Config::builder()

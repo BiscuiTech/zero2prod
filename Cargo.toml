@@ -31,11 +31,12 @@ version = "0.6"
 default-features = false
 features = [
   "runtime-tokio-rustls", 
-    "macros", 
-    "postgres", 
-    "uuid", 
-    "chrono", 
-    "migrate"
+  "macros", 
+  "postgres", 
+  "uuid", 
+  "chrono", 
+  "migrate",
+  "offline"
 ]
 
 [dev-dependencies]

@@ -85,7 +85,6 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
     ];
     for (body, description) in test_cases {
         // Act
-        let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
         let response = client
             .post(&format!("{}/subscriptions", &app.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
@@ -101,12 +100,6 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
             description
         );
     }
-    // let saved = sqlx::query!("SELECT email, name FROM subscriptions",)
-    //     .fetch_one(&app.db_pool)
-    //     .await
-    //     .expect("failed to fetch saved subs");
-    // assert_eq!(saved.email, "ursula_le_guin@gmail.com");
-    // assert_eq!(saved.name, "le guin");
 }
 
 #[tokio::test]

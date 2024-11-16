@@ -17,7 +17,7 @@ impl Application {
     pub async fn build(configuration: Settings) -> Result<Self, std::io::Error> {
         let connection_pool = PgPoolOptions::new()
             .acquire_timeout(std::time::Duration::from_secs(2))
-            .connect_lazy_with(configuration.database.with_db());
+            .connect_lazy_with(configuration.database.connect_options());
         let sender_email = configuration
             .email_client
             .sender()
@@ -53,8 +53,8 @@ impl Application {
 
 pub fn get_connection_pool(configuration: &DatabaseSettings) -> PgPool {
     PgPoolOptions::new()
-        .acquire_timeout(std::time::Duration::from_secs(2))
-        .connect_lazy_with(configuration.with_db())
+        // .acquire_timeout(std::time::Duration::from_secs(2))
+        .connect_lazy_with(configuration.connect_options())
 }
 
 pub struct ApplicationBaseUrl(pub String);

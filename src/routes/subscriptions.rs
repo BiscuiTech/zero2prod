@@ -210,7 +210,7 @@ pub async fn insert_subscriber(
     Ok(subscriber_id)
 }
 
-fn error_chain_fmt(
+pub fn error_chain_fmt(
     e: &impl std::error::Error,
     f: &mut std::fmt::Formatter<'_>,
 ) -> std::fmt::Result {

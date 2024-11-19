@@ -12,6 +12,7 @@ name = "zero2prod"
 
 [dependencies]
 actix-web = "4"
+argon2 = { version = "0.5", features = ["std"] }
 config = "0.13"
 chrono = {version = "0.4.22", default-features = false, features = ["clock"]}
 claims = "0.7"
@@ -33,6 +34,7 @@ validator = "0.16"
 rand = {version = "0.8", features = ["std_rng"]}
 thiserror = "1"
 anyhow = "1"
+base64 = "0.21"
 
 [dependencies.sqlx]
 version = "0.8"

@@ -49,3 +49,4 @@ export DATABASE_URL
 sqlx database create
 sqlx migrate run
 >&2 echo "Postgres has been migrated, ready to go!"
+>&2 echo "If you're running into test issues, run `ulimit -n 2048`"

@@ -3,6 +3,7 @@ use actix_web::{
     web, HttpRequest, HttpResponse, ResponseError,
 };
 use anyhow::Context;
+use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use base64::Engine;
 use reqwest::{header, StatusCode};
 use secrecy::{ExposeSecret, Secret};
@@ -77,6 +78,7 @@ pub async fn publish_newsletter(
     let credentials = basic_authentication(request.headers()).map_err(PublishError::AuthError)?;
     tracing::Span::current().record("username", &tracing::field::display(&credentials.username));
     let user_id = validate_credentials(credentials, &pool).await?;
+    tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
     let subscribers = get_confirmed_subscribers(&pool).await?;
     for subscriber in subscribers {
         match subscriber {
@@ -117,15 +119,19 @@ fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Erro
         .context("The 'Authorization' header was missing")?
         .to_str()
         .context("The 'Authorization' header was not a valid UTF8 string.")?;
+    // println!("header_value: {:?}", header_value);
     let base64encoded_segment = header_value
         .strip_prefix("Basic ")
         .context("The authorization scheme was not 'Basic'.")?;
+    // println!("base64encoded_segment: {:?}", base64encoded_segment);
     let decoded_bytes = base64::engine::general_purpose::STANDARD
         .decode(base64encoded_segment)
         .context("Failed to base64-decode 'Basic' credentials.")?;
+    // println!("decoded_bytes: {:?}", decoded_bytes);
     let decoded_credentials = String::from_utf8(decoded_bytes)
         .context("The decoded credential string is not valid UTF8.")?;
 
+    // println!("decoded_credentials: {:?}", decoded_credentials);
     let mut credentials = decoded_credentials.splitn(2, ':');
     let username = credentials
         .next()
@@ -163,25 +169,46 @@ async fn get_confirmed_subscribers(
     Ok(confirmed_subscribers)
 }
 
+#[tracing::instrument(name = "Validate credentials", skip(credentials, pool))]
 async fn validate_credentials(
     credentials: Credentials,
     pool: &PgPool,
 ) -> Result<uuid::Uuid, PublishError> {
-    let user_id: Option<_> = sqlx::query!(
+    let (user_id, expected_password_hash) = get_stored_credentials(&credentials.username, &pool)
+        .await
+        .map_err(PublishError::UnexpectedError)?
+        .ok_or_else(|| PublishError::AuthError(anyhow::anyhow!("Unknown username")))?;
+    let expected_password_hash = PasswordHash::new(&expected_password_hash.expose_secret())
+        .context("Failed to parser hash in PHC string format.")
+        .map_err(PublishError::UnexpectedError)?;
+    tracing::info_span!("Verify password hash")
+        .in_scope(|| {
+            Argon2::default().verify_password(
+                credentials.password.expose_secret().as_bytes(),
+                &expected_password_hash,
+            )
+        })
+        .context("Invalid password.")
+        .map_err(PublishError::AuthError)?;
+    Ok(user_id)
+}
+
+#[tracing::instrument(name = "Get stored credentials", skip(username, pool))]
+async fn get_stored_credentials(
+    username: &str,
+    pool: &PgPool,
+) -> Result<Option<(uuid::Uuid, Secret<String>)>, anyhow::Error> {
+    let row = sqlx::query!(
         r#"
-            SELECT user_id
+            SELECT user_id, password_hash
             FROM users
-            WHERE username = $1 AND password = $2
+            WHERE username = $1
         "#,
-        credentials.username,
-        credentials.password.expose_secret()
+        username
     )
     .fetch_optional(pool)
     .await
-    .context("Failed to perform a query to validate auth credentials.")
-    .map_err(PublishError::UnexpectedError)?;
-    user_id
-        .map(|row| row.user_id)
-        .ok_or_else(|| anyhow::anyhow!("Invalid username or password."))
-        .map_err(PublishError::AuthError)
+    .context("Failed to perform a query to retrieve stored credentials.")?
+    .map(|row| (row.user_id, Secret::new(row.password_hash)));
+    Ok(row)
 }
